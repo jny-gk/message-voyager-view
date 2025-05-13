@@ -26,7 +26,7 @@ const MessageStatusBadge: React.FC<MessageStatusBadgeProps> = ({
       case "smartphone":
         return <Smartphone className="h-4 w-4" />;
       case "post":
-      case "portal":
+      case "message-square":
         return <MessageSquare className="h-4 w-4" />;
       default:
         return <MessageSquare className="h-4 w-4" />;

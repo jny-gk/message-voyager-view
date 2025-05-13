@@ -1,32 +1,29 @@
 import { Message, MessageChannel, MessageLog, MessageStatus } from "@/types/message";
 
-export function getStatusColor(channel: MessageChannel, status: MessageStatus): string {
+export function getStatusColor(status: MessageStatus): string {
   const statusColorMap: { [key: string]: string } = {
-    'email:pending': 'bg-gray-100 text-gray-700',
-    'email:sent': 'bg-blue-100 text-blue-700',
-    'email:delivered': 'bg-green-100 text-green-700',
-    'email:failed': 'bg-red-100 text-red-700',
-    'email:bounced': 'bg-red-100 text-red-700',
-    'post:pending': 'bg-gray-100 text-gray-700',
-    'post:sent': 'bg-blue-100 text-blue-700',
-    'post:delivered': 'bg-green-100 text-green-700',
-    'post:failed': 'bg-red-100 text-red-700',
-    'post:bounced': 'bg-red-100 text-red-700',
-    'sms:pending': 'bg-gray-100 text-gray-700',
-    'sms:sent': 'bg-blue-100 text-blue-700',
-    'sms:delivered': 'bg-green-100 text-green-700',
-    'sms:failed': 'bg-red-100 text-red-700',
-    'sms:bounced': 'bg-red-100 text-red-700',
-    'portal:pending': 'bg-gray-100 text-gray-700',
-    'portal:sent': 'bg-blue-100 text-blue-700',
-    'portal:delivered': 'bg-green-100 text-green-700',
-    'portal:failed': 'bg-red-100 text-red-700',
-    'portal:bounced': 'bg-red-100 text-red-700',
-    'portal:validated': 'bg-purple-100 text-purple-700',
-    'portal:validation_failed': 'bg-orange-100 text-orange-700',
+    'pending': 'text-gray-600',
+    'sent': 'text-blue-600',
+    'delivered': 'text-green-600',
+    'failed': 'text-red-600',
+    'bounced': 'text-red-600',
+    'fallback_initiated': 'text-orange-600',
+    'validated': 'text-purple-600',
+    'validation_failed': 'text-orange-600'
   };
 
-  return statusColorMap[`${channel}:${status}`] || 'bg-gray-100 text-gray-700';
+  return statusColorMap[status] || 'text-gray-600';
+}
+
+export function getChannelIcon(channel: MessageChannel): string {
+  const channelIconMap: { [key: string]: string } = {
+    'email': 'mail',
+    'post': 'message-square',
+    'sms': 'smartphone',
+    'portal': 'message-square'
+  };
+
+  return channelIconMap[channel] || 'message-square';
 }
 
 export async function getMessage(id: string): Promise<Message> {
