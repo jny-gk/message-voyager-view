@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getMessages, reprocessMessage, deleteMessage, cancelMessage } from "@/services/messageService";
@@ -240,7 +239,7 @@ const MessageList = () => {
                 </Select>
               </div>
               
-              {/* New Channel Type Filter */}
+              {/* Channel Type Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sendetyp</label>
                 <Select value={channelFilter} onValueChange={handleChannelChange}>
@@ -251,7 +250,7 @@ const MessageList = () => {
                     <SelectItem value="all">Alle Typen</SelectItem>
                     {allChannels.map((channel) => (
                       <SelectItem key={channel} value={channel}>
-                        {channel === "mail" ? "E-Mail" : 
+                        {channel === "email" ? "E-Mail" : 
                          channel === "portal" ? "Portal" : 
                          channel === "sms" ? "SMS" : 
                          channel.charAt(0).toUpperCase() + channel.slice(1)}
