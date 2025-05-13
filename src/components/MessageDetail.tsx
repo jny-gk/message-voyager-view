@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -80,6 +79,48 @@ const MessageDetail = () => {
   const handleDelete = () => id && deleteMutation.mutate(id);
   const handleCancel = () => id && cancelMutation.mutate(id);
 
+  // Generate logs with validation errors for problem statuses
+  const getEnhancedLogs = () => {
+    if (!message) return [];
+    
+    let logs = [...message.logs];
+    
+    // Add validation issues as log entries if they exist and status indicates issues
+    if (message.validationResult && !message.validationResult.isValid && 
+        message.validationResult.issues && message.validationResult.issues.length > 0) {
+      
+      // Add each validation issue as a separate log entry
+      message.validationResult.issues.forEach((issue, index) => {
+        logs.push({
+          id: `validation-${index}`,
+          timestamp: message.updatedAt, // Use the message update time
+          message: `Validierungsfehler: ${issue}`,
+          level: "error"
+        });
+      });
+    }
+    
+    // Add status-specific log entries for problem statuses
+    if (message.status === "failed") {
+      logs.push({
+        id: "status-failed",
+        timestamp: message.updatedAt,
+        message: "Die Nachricht konnte nicht zugestellt werden.",
+        level: "error"
+      });
+    } else if (message.status === "bounced") {
+      logs.push({
+        id: "status-bounced",
+        timestamp: message.updatedAt,
+        message: "Die Nachricht wurde abgelehnt (Bounce).",
+        level: "error"
+      });
+    }
+    
+    // Sort logs by timestamp (newest first)
+    return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  };
+
   if (isLoading) {
     return <div className="text-center py-8">Nachricht wird geladen...</div>;
   }
@@ -87,6 +128,9 @@ const MessageDetail = () => {
   if (error || !message) {
     return <div className="text-center py-8 text-red-500">Nachricht konnte nicht geladen werden</div>;
   }
+
+  // Get enhanced logs with validation errors
+  const enhancedLogs = getEnhancedLogs();
 
   return (
     <div className="space-y-6">
@@ -227,7 +271,7 @@ const MessageDetail = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {message.logs.map((log) => (
+                    {enhancedLogs.map((log) => (
                       <TableRow key={log.id}>
                         <TableCell className="text-xs">
                           {new Date(log.timestamp).toLocaleString('de-DE')}
