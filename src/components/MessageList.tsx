@@ -112,10 +112,15 @@ const MessageList = () => {
       field.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
-    // Status filter
+    // Status filter - improved to match normalized status strings
+    const searchStatus = statusFilter.toLowerCase().replace(/\s+/g, "_");
     const statusMatch = !statusFilter || 
-      message.status === statusFilter || 
-      message.fallbackStatus === statusFilter;
+      message.status === searchStatus || 
+      message.fallbackStatus === searchStatus;
+    
+    // Search for fallback specifically
+    const isFallbackSearch = statusFilter.toLowerCase() === "fallback";
+    const fallbackMatch = !isFallbackSearch || message.fallbackChannel !== undefined;
     
     // Log content search
     const logContentMatch = !logSearchTerm.trim() || 
@@ -123,7 +128,7 @@ const MessageList = () => {
         log.message.toLowerCase().includes(logSearchTerm.toLowerCase())
       );
     
-    return basicSearchMatch && statusMatch && logContentMatch;
+    return basicSearchMatch && (statusMatch || fallbackMatch) && logContentMatch;
   });
 
   // Get unique status values from all messages for the dropdown
@@ -195,10 +200,11 @@ const MessageList = () => {
                   <SelectContent>
                     <SelectItem value="">Alle Status</SelectItem>
                     {allStatuses.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status.replace("_", " ")}
+                      <SelectItem key={status} value={status.replace("_", " ")}>
+                        {status.replace(/_/g, " ")}
                       </SelectItem>
                     ))}
+                    <SelectItem value="fallback">Fallback</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
