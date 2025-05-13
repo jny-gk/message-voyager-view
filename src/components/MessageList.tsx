@@ -33,11 +33,13 @@ const MessageList = () => {
   });
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all"); // Changed default to "all" instead of empty string
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   
+  // Handle search input changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
@@ -46,8 +48,22 @@ const MessageList = () => {
     setStatusFilter(value);
   };
   
+  const handleChannelChange = (value: string) => {
+    setChannelFilter(value);
+  };
+  
   const handleLogSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLogSearchTerm(e.target.value);
+  };
+  
+  // Function to execute search with current filters
+  const handleSearchSubmit = () => {
+    // The actual filtering happens in the filteredMessages computed value
+    // This function is for any additional search logic, notifications, etc.
+    toast({
+      title: "Suche durchgeführt",
+      description: "Die Nachrichtenliste wurde nach Ihren Kriterien gefiltert.",
+    });
   };
   
   // Mutations for message actions
@@ -119,6 +135,12 @@ const MessageList = () => {
       message.status === searchStatus || 
       message.fallbackStatus === searchStatus;
     
+    // Channel filter (new)
+    const isAllChannels = channelFilter === "all";
+    const channelMatch = isAllChannels || 
+      message.channel === channelFilter || 
+      message.fallbackChannel === channelFilter;
+    
     // Search for fallback specifically
     const isFallbackSearch = statusFilter.toLowerCase() === "fallback";
     const fallbackMatch = !isFallbackSearch || message.fallbackChannel !== undefined;
@@ -129,7 +151,7 @@ const MessageList = () => {
         log.message.toLowerCase().includes(logSearchTerm.toLowerCase())
       );
     
-    return basicSearchMatch && (statusMatch || fallbackMatch) && logContentMatch;
+    return basicSearchMatch && (statusMatch || fallbackMatch) && channelMatch && logContentMatch;
   });
 
   // Get unique status values from all messages for the dropdown
@@ -137,6 +159,14 @@ const MessageList = () => {
     [...new Set([
       ...messages.map(msg => msg.status),
       ...messages.filter(msg => msg.fallbackStatus).map(msg => msg.fallbackStatus as MessageStatus)
+    ])] : 
+    [];
+
+  // Get unique channel types from all messages
+  const allChannels = messages ? 
+    [...new Set([
+      ...messages.map(msg => msg.channel),
+      ...messages.filter(msg => msg.fallbackChannel).map(msg => msg.fallbackChannel as MessageChannel)
     ])] : 
     [];
 
@@ -199,13 +229,34 @@ const MessageList = () => {
                     <SelectValue placeholder="Alle Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle Status</SelectItem> {/* Changed value from empty string to "all" */}
+                    <SelectItem value="all">Alle Status</SelectItem>
                     {allStatuses.map((status) => (
                       <SelectItem key={status} value={status.replace("_", " ")}>
                         {status.replace(/_/g, " ")}
                       </SelectItem>
                     ))}
                     <SelectItem value="fallback">Fallback</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* New Channel Type Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Sendetyp</label>
+                <Select value={channelFilter} onValueChange={handleChannelChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Alle Typen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Typen</SelectItem>
+                    {allChannels.map((channel) => (
+                      <SelectItem key={channel} value={channel}>
+                        {channel === "mail" ? "E-Mail" : 
+                         channel === "portal" ? "Portal" : 
+                         channel === "sms" ? "SMS" : 
+                         channel.charAt(0).toUpperCase() + channel.slice(1)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -219,11 +270,23 @@ const MessageList = () => {
                   onChange={handleLogSearchChange}
                 />
               </div>
+              
+              {/* Search button */}
+              <div className="flex items-end">
+                <Button 
+                  onClick={handleSearchSubmit}
+                  className="w-full md:w-auto flex items-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  Suche starten
+                </Button>
+              </div>
             </div>
           </div>
         )}
       </div>
       
+      {/* Message list display */}
       {filteredMessages && filteredMessages.length > 0 ? (
         filteredMessages.map((message) => (
           <Card key={message.id} className="hover:shadow-md transition-shadow">
