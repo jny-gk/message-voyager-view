@@ -6,11 +6,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, RefreshCcw, Trash2, X } from "lucide-react";
+import { Search, Filter, RefreshCcw, Trash2, X, Clock } from "lucide-react";
 import { MessageChannel, MessageStatus } from "@/types/message";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { format, subHours, subDays, subMonths, isWithinInterval, parseISO } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,8 +39,12 @@ const MessageList = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [logSearchTerm, setLogSearchTerm] = useState("");
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(true); // Default to expanded
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  
+  // Time filter state
+  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(undefined);
   
   // Handle search input changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +71,37 @@ const MessageList = () => {
       title: "Suche durchgeführt",
       description: "Die Nachrichtenliste wurde nach Ihren Kriterien gefiltert.",
     });
+  };
+  
+  // Time range shortcut handlers
+  const setTimeRangeLastHour = () => {
+    setFromDate(subHours(new Date(), 1));
+    setToDate(new Date());
+  };
+  
+  const setTimeRangeLast24Hours = () => {
+    setFromDate(subHours(new Date(), 24));
+    setToDate(new Date());
+  };
+  
+  const setTimeRangeLast2Days = () => {
+    setFromDate(subDays(new Date(), 2));
+    setToDate(new Date());
+  };
+  
+  const setTimeRangeLast7Days = () => {
+    setFromDate(subDays(new Date(), 7));
+    setToDate(new Date());
+  };
+  
+  const setTimeRangeLast30Days = () => {
+    setFromDate(subMonths(new Date(), 1));
+    setToDate(new Date());
+  };
+  
+  const clearTimeRange = () => {
+    setFromDate(undefined);
+    setToDate(undefined);
   };
   
   // Mutations for message actions
@@ -134,7 +173,7 @@ const MessageList = () => {
       message.status === searchStatus || 
       message.fallbackStatus === searchStatus;
     
-    // Channel filter (new)
+    // Channel filter
     const isAllChannels = channelFilter === "all";
     const channelMatch = isAllChannels || 
       message.channel === channelFilter || 
@@ -150,7 +189,36 @@ const MessageList = () => {
         log.message.toLowerCase().includes(logSearchTerm.toLowerCase())
       );
     
-    return basicSearchMatch && (statusMatch || fallbackMatch) && channelMatch && logContentMatch;
+    // Time range filter
+    let timeRangeMatch = true;
+    if (fromDate || toDate) {
+      timeRangeMatch = message.logs.some(log => {
+        try {
+          // Parse the timestamp from the log entry
+          const logTimestamp = parseISO(log.timestamp);
+          
+          // If we only have fromDate or toDate, use appropriate logic
+          if (fromDate && !toDate) {
+            return logTimestamp >= fromDate;
+          }
+          if (!fromDate && toDate) {
+            return logTimestamp <= toDate;
+          }
+          
+          // If we have both dates, check if the timestamp is within the interval
+          if (fromDate && toDate) {
+            return isWithinInterval(logTimestamp, { start: fromDate, end: toDate });
+          }
+          
+          return true;
+        } catch (e) {
+          // In case of any parsing error, include the message
+          return true;
+        }
+      });
+    }
+    
+    return basicSearchMatch && (statusMatch || fallbackMatch) && channelMatch && logContentMatch && timeRangeMatch;
   });
 
   // Get unique status values from all messages for the dropdown
@@ -270,8 +338,139 @@ const MessageList = () => {
                 />
               </div>
               
+              {/* Time range filter */}
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">Zeitraum</label>
+                
+                <div className="flex flex-col md:flex-row gap-4">
+                  {/* From Date */}
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 mb-1 block">Von</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !fromDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Clock className="mr-2 h-4 w-4" />
+                          {fromDate ? format(fromDate, "dd.MM.yyyy HH:mm") : <span>Startdatum wählen</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={fromDate}
+                          onSelect={setFromDate}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                        <div className="p-3 border-t border-border">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Input
+                              type="time"
+                              className="w-full"
+                              value={fromDate ? format(fromDate, "HH:mm") : ""}
+                              onChange={(e) => {
+                                if (fromDate) {
+                                  const [hours, minutes] = e.target.value.split(':').map(Number);
+                                  const newDate = new Date(fromDate);
+                                  newDate.setHours(hours, minutes);
+                                  setFromDate(newDate);
+                                } else {
+                                  const newDate = new Date();
+                                  const [hours, minutes] = e.target.value.split(':').map(Number);
+                                  newDate.setHours(hours, minutes);
+                                  setFromDate(newDate);
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* To Date */}
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 mb-1 block">Bis</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !toDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Clock className="mr-2 h-4 w-4" />
+                          {toDate ? format(toDate, "dd.MM.yyyy HH:mm") : <span>Enddatum wählen</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={toDate}
+                          onSelect={setToDate}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                        <div className="p-3 border-t border-border">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Input
+                              type="time"
+                              className="w-full"
+                              value={toDate ? format(toDate, "HH:mm") : ""}
+                              onChange={(e) => {
+                                if (toDate) {
+                                  const [hours, minutes] = e.target.value.split(':').map(Number);
+                                  const newDate = new Date(toDate);
+                                  newDate.setHours(hours, minutes);
+                                  setToDate(newDate);
+                                } else {
+                                  const newDate = new Date();
+                                  const [hours, minutes] = e.target.value.split(':').map(Number);
+                                  newDate.setHours(hours, minutes);
+                                  setToDate(newDate);
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* Time range shortcut buttons */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Button size="sm" variant="outline" onClick={setTimeRangeLastHour}>
+                    Letzte Stunde
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={setTimeRangeLast24Hours}>
+                    Letzte 24 Stunden
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={setTimeRangeLast2Days}>
+                    Letzte 2 Tage
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={setTimeRangeLast7Days}>
+                    Letzte Woche
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={setTimeRangeLast30Days}>
+                    Letzter Monat
+                  </Button>
+                  {(fromDate || toDate) && (
+                    <Button size="sm" variant="outline" onClick={clearTimeRange}>
+                      Zeitraum zurücksetzen
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
               {/* Search button */}
-              <div className="flex items-end">
+              <div className="flex items-end md:col-span-2">
                 <Button 
                   onClick={handleSearchSubmit}
                   className="w-full md:w-auto flex items-center gap-2"
