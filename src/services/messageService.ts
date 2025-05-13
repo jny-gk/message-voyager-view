@@ -1,3 +1,4 @@
+
 import { Message, MessageChannel, MessageLog, MessageStatus } from "@/types/message";
 
 export function getStatusColor(status: MessageStatus): string {
@@ -26,34 +27,118 @@ export function getChannelIcon(channel: MessageChannel): string {
   return channelIconMap[channel] || 'message-square';
 }
 
+// Helper function to generate random test data
+function generateRandomMessage(id: string): Message {
+  const channels: MessageChannel[] = ["email", "post", "sms", "portal"];
+  const statuses: MessageStatus[] = ["pending", "sent", "delivered", "failed", "bounced", "fallback_initiated", "validated", "validation_failed"];
+  const domains = ["example.com", "test.org", "demo.net", "company.de", "domain.io"];
+  const subjects = [
+    "Wichtige Mitteilung", 
+    "Ihre Rechnung", 
+    "Bestellbestätigung", 
+    "Kontoauszug",
+    "Terminerinnerung",
+    "Änderung Ihrer Daten",
+    "Willkommen bei uns",
+    "Passwortänderung"
+  ];
+  const contentParts = [
+    "Vielen Dank für Ihre Bestellung.",
+    "Anbei finden Sie Ihre monatliche Rechnung.",
+    "Ihr Konto wurde erfolgreich aktualisiert.",
+    "Bitte bestätigen Sie Ihre E-Mail-Adresse.",
+    "Wir haben eine Anfrage zur Passwortänderung erhalten."
+  ];
+  
+  // Generate random values
+  const channel = channels[Math.floor(Math.random() * channels.length)];
+  const status = statuses[Math.floor(Math.random() * statuses.length)];
+  const domain = domains[Math.floor(Math.random() * domains.length)];
+  const recipient = `kunde${id}@${domain}`;
+  const subject = subjects[Math.floor(Math.random() * subjects.length)] + " #" + id;
+  
+  // Generate random content by combining 2-3 content parts
+  let content = "";
+  const numParts = Math.floor(Math.random() * 2) + 2; // 2-3 parts
+  for (let i = 0; i < numParts; i++) {
+    const randomPart = contentParts[Math.floor(Math.random() * contentParts.length)];
+    content += randomPart + " ";
+  }
+  content += `\n\nReferenz: REF-${id}`;
+  
+  // Generate random dates (within the last 30 days)
+  const createdDate = new Date(Date.now() - Math.floor(Math.random() * 30) * 86400000);
+  const updatedDate = new Date(createdDate.getTime() + Math.floor(Math.random() * 3) * 86400000);
+  
+  // Randomly determine if fallback channel should be used
+  const useFallback = Math.random() > 0.7;
+  const fallbackChannel = useFallback ? channels.filter(c => c !== channel)[Math.floor(Math.random() * (channels.length - 1))] : undefined;
+  const fallbackStatus = useFallback ? statuses[Math.floor(Math.random() * statuses.length)] : undefined;
+  
+  // Generate random validation result
+  const isValid = Math.random() > 0.2;
+  const validationIssues = isValid ? [] : [
+    "Ungültige E-Mail-Adresse",
+    "Fehlende Pflichtangaben",
+    "Formatierungsfehler im Inhalt",
+    "Unzulässige Zeichen enthalten"
+  ].slice(0, Math.floor(Math.random() * 3) + 1);
+  
+  // Generate random logs
+  const logCount = Math.floor(Math.random() * 5) + 1;
+  const logs: MessageLog[] = [];
+  
+  const logMessages = [
+    "Nachricht erstellt",
+    "Validierung erfolgreich",
+    "Validierungsfehler aufgetreten",
+    "Sendeversuch gestartet",
+    "Nachricht gesendet",
+    "Nachricht zugestellt",
+    "Fehler beim Senden",
+    "Bounce empfangen",
+    "Fallback-Kanal initiiert",
+    "Nachricht abgebrochen"
+  ];
+  
+  for (let i = 0; i < logCount; i++) {
+    const logTime = new Date(createdDate.getTime() + (i * (Math.random() * 3600000)));
+    const level = Math.random() > 0.8 ? (Math.random() > 0.5 ? "warning" : "error") : "info";
+    logs.push({
+      id: `${id}-log-${i}`,
+      timestamp: logTime.toISOString(),
+      message: logMessages[Math.floor(Math.random() * logMessages.length)],
+      level: level as "info" | "warning" | "error"
+    });
+  }
+  
+  return {
+    id,
+    recipient,
+    subject,
+    content,
+    channel,
+    status,
+    createdAt: createdDate.toISOString(),
+    updatedAt: updatedDate.toISOString(),
+    fallbackChannel,
+    fallbackStatus,
+    validationResult: {
+      isValid,
+      issues: validationIssues,
+    },
+    logs,
+  };
+}
+
 export async function getMessage(id: string): Promise<Message> {
   // Mock implementation
   await new Promise((resolve) => setTimeout(resolve, 500));
-
-  const mockLogs: MessageLog[] = [
-    { id: "1", timestamp: new Date().toISOString(), message: "Nachricht erstellt", level: "info" },
-    { id: "2", timestamp: new Date().toISOString(), message: "Validierung erfolgreich", level: "info" },
-    { id: "3", timestamp: new Date().toISOString(), message: "E-Mail gesendet", level: "info" },
-  ];
-
-  const mockMessage: Message = {
-    id: id,
-    recipient: "test@example.com",
-    subject: `Testnachricht ${id}`,
-    content: "Dies ist eine Testnachricht.",
-    channel: "email",
-    status: "sent",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    fallbackChannel: "sms",
-    fallbackStatus: "pending",
-    validationResult: {
-      isValid: true,
-      issues: [],
-    },
-    logs: mockLogs,
-  };
-
+  
+  // Generate consistent message for a specific ID
+  const seed = parseInt(id.replace(/[^0-9]/g, '')) || 1;
+  const mockMessage = generateRandomMessage(id);
+  
   return mockMessage;
 }
 
@@ -61,25 +146,10 @@ export async function getMessages(): Promise<Message[]> {
   // Mock implementation
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const mockMessages: Message[] = Array.from({ length: 5 }, (_, i) => {
-    const id = (i + 1).toString();
-    return {
-      id: id,
-      recipient: `test${id}@example.com`,
-      subject: `Testnachricht ${id}`,
-      content: "Dies ist eine Testnachricht.",
-      channel: "email",
-      status: "sent",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      fallbackChannel: "sms",
-      fallbackStatus: "pending",
-      validationResult: {
-        isValid: true,
-        issues: [],
-      },
-      logs: [],
-    };
+  // Generate 100 mock messages with variable data
+  const mockMessages: Message[] = Array.from({ length: 100 }, (_, i) => {
+    const id = (i + 1).toString().padStart(3, '0');
+    return generateRandomMessage(id);
   });
 
   return mockMessages;

@@ -1,4 +1,5 @@
 
+import React from "react";
 import MessageDetail from "@/components/MessageDetail";
 
 const MessageDetailPage = () => {

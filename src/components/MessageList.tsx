@@ -1,19 +1,32 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getMessages } from "@/services/messageService";
+import { getMessages, reprocessMessage, deleteMessage, cancelMessage } from "@/services/messageService";
 import MessageStatusBadge from "./MessageStatusBadge";
-import MessageActions from "./MessageActions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, RefreshCcw, Trash2, X } from "lucide-react";
 import { MessageChannel, MessageStatus } from "@/types/message";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const MessageList = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: messages, isLoading, error } = useQuery({
     queryKey: ["messages"],
     queryFn: getMessages
@@ -23,6 +36,7 @@ const MessageList = () => {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -35,6 +49,56 @@ const MessageList = () => {
   const handleLogSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLogSearchTerm(e.target.value);
   };
+  
+  // Mutations for message actions
+  const reprocessMutation = useMutation({
+    mutationFn: reprocessMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      toast({
+        title: "Nachricht zur Neuverarbeitung markiert",
+        description: "Die Nachricht wird in Kürze erneut verarbeitet.",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      toast({
+        title: "Nachricht gelöscht",
+        description: "Die Nachricht wurde erfolgreich gelöscht.",
+      });
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: cancelMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      toast({
+        title: "Nachricht abgebrochen",
+        description: "Die Nachricht wurde erfolgreich abgebrochen.",
+      });
+    },
+  });
+
+  const handleReprocess = (id: string) => reprocessMutation.mutate(id);
+  const handleDelete = (id: string) => setMessageToDelete(id);
+  const handleCancel = (id: string) => cancelMutation.mutate(id);
+  const confirmDelete = () => {
+    if (messageToDelete) {
+      deleteMutation.mutate(messageToDelete);
+      setMessageToDelete(null);
+    }
+  };
+  
+  // Determine which actions are available based on status
+  const canReprocess = (status: MessageStatus) => 
+    status !== "pending" && status !== "sent" && status !== "delivered";
+  const canCancel = (status: MessageStatus) => 
+    status === "pending" || status === "validated";
   
   const filteredMessages = messages?.filter((message) => {
     // Basic search filter
@@ -157,7 +221,7 @@ const MessageList = () => {
         filteredMessages.map((message) => (
           <Card key={message.id} className="hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
-              <div className="flex justify-between items-start">
+              <div className="flex flex-col md:flex-row justify-between gap-4">
                 <div className="flex-grow">
                   <div className="font-medium">{message.subject}</div>
                   <div className="text-sm text-gray-500">{message.recipient}</div>
@@ -172,14 +236,51 @@ const MessageList = () => {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-2 items-start">
+                  {/* Action buttons - more prominent now */}
+                  {canReprocess(message.status) && (
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleReprocess(message.id)}
+                      disabled={reprocessMutation.isPending}
+                      className="flex items-center gap-1"
+                    >
+                      <RefreshCcw className="h-4 w-4" />
+                      Neuverarbeiten
+                    </Button>
+                  )}
+                  
+                  {canCancel(message.status) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCancel(message.id)}
+                      disabled={cancelMutation.isPending}
+                      className="flex items-center gap-1"
+                    >
+                      <X className="h-4 w-4" />
+                      Abbrechen
+                    </Button>
+                  )}
+                  
                   <Button 
                     variant="outline" 
+                    size="sm"
                     onClick={() => navigate(`/message/${message.id}`)}
                   >
                     Details
                   </Button>
-                  <MessageActions id={message.id} status={message.status} />
+                  
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(message.id)}
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Löschen
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -190,6 +291,28 @@ const MessageList = () => {
           <p className="text-gray-500">Keine Nachrichten gefunden</p>
         </div>
       )}
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!messageToDelete} onOpenChange={(open) => !open && setMessageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Nachricht löschen</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sind Sie sicher, dass Sie diese Nachricht löschen möchten? 
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -1,24 +1,84 @@
-import React from "react";
+
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getMessage } from "@/services/messageService";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getMessage, reprocessMessage, deleteMessage, cancelMessage } from "@/services/messageService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, AlertTriangle, CheckCircle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, CheckCircle, RefreshCcw, Trash2, X } from "lucide-react";
 import MessageStatusBadge from "./MessageStatusBadge";
-import MessageActions from "./MessageActions";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const MessageDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
   const { data: message, isLoading, error } = useQuery({
     queryKey: ["message", id],
     queryFn: () => getMessage(id || ""),
     enabled: !!id
   });
+
+  // Determine which actions are available based on status
+  const canReprocess = message && message.status !== "pending" && message.status !== "sent" && message.status !== "delivered";
+  const canCancel = message && (message.status === "pending" || message.status === "validated");
+
+  // Mutations for different actions
+  const reprocessMutation = useMutation({
+    mutationFn: reprocessMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["message", id] });
+      toast({
+        title: "Nachricht zur Neuverarbeitung markiert",
+        description: "Die Nachricht wird in Kürze erneut verarbeitet.",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      toast({
+        title: "Nachricht gelöscht",
+        description: "Die Nachricht wurde erfolgreich gelöscht.",
+      });
+      navigate("/");
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: cancelMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["message", id] });
+      toast({
+        title: "Nachricht abgebrochen",
+        description: "Die Nachricht wurde erfolgreich abgebrochen.",
+      });
+    },
+  });
+
+  const handleReprocess = () => id && reprocessMutation.mutate(id);
+  const handleDelete = () => id && deleteMutation.mutate(id);
+  const handleCancel = () => id && cancelMutation.mutate(id);
 
   if (isLoading) {
     return <div className="text-center py-8">Nachricht wird geladen...</div>;
@@ -39,8 +99,43 @@ const MessageDetail = () => {
           <div className="font-medium text-sm text-gray-500">
             ID: {message.id}
           </div>
-          <MessageActions id={message.id} status={message.status} />
         </div>
+      </div>
+      
+      {/* Action buttons - prominently displayed at the top */}
+      <div className="flex flex-wrap gap-2 justify-end">
+        {canReprocess && (
+          <Button 
+            onClick={handleReprocess} 
+            disabled={reprocessMutation.isPending}
+            variant="secondary"
+            className="gap-2"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Neuverarbeiten
+          </Button>
+        )}
+        
+        {canCancel && (
+          <Button 
+            onClick={handleCancel} 
+            disabled={cancelMutation.isPending}
+            variant="secondary"
+            className="gap-2"
+          >
+            <X className="h-4 w-4" />
+            Abbrechen
+          </Button>
+        )}
+        
+        <Button 
+          onClick={() => setIsDeleteDialogOpen(true)}
+          variant="destructive"
+          className="gap-2"
+        >
+          <Trash2 className="h-4 w-4" />
+          Löschen
+        </Button>
       </div>
       
       <Card>
@@ -158,6 +253,27 @@ const MessageDetail = () => {
           </Tabs>
         </CardContent>
       </Card>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Nachricht löschen</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sind Sie sicher, dass Sie diese Nachricht löschen möchten? 
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
