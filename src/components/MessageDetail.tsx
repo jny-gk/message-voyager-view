@@ -10,6 +10,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, AlertTriangle, CheckCircle } from "lucide-react";
 import MessageStatusBadge from "./MessageStatusBadge";
+import MessageActions from "./MessageActions";
 
 const MessageDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,8 +36,11 @@ const MessageDetail = () => {
           <ArrowLeft size={16} />
           Zurück
         </Button>
-        <div className="font-medium text-sm text-gray-500">
-          ID: {message.id}
+        <div className="flex items-center gap-4">
+          <div className="font-medium text-sm text-gray-500">
+            ID: {message.id}
+          </div>
+          <MessageActions id={message.id} status={message.status} />
         </div>
       </div>
       
