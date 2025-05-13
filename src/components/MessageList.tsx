@@ -33,7 +33,7 @@ const MessageList = () => {
   });
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all"); // Changed default to "all" instead of empty string
   const [logSearchTerm, setLogSearchTerm] = useState("");
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
@@ -113,8 +113,9 @@ const MessageList = () => {
     );
     
     // Status filter - improved to match normalized status strings
-    const searchStatus = statusFilter.toLowerCase().replace(/\s+/g, "_");
-    const statusMatch = !statusFilter || 
+    const isAllStatuses = statusFilter === "all";
+    const searchStatus = !isAllStatuses ? statusFilter.toLowerCase().replace(/\s+/g, "_") : "";
+    const statusMatch = isAllStatuses || 
       message.status === searchStatus || 
       message.fallbackStatus === searchStatus;
     
@@ -198,7 +199,7 @@ const MessageList = () => {
                     <SelectValue placeholder="Alle Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Alle Status</SelectItem>
+                    <SelectItem value="all">Alle Status</SelectItem> {/* Changed value from empty string to "all" */}
                     {allStatuses.map((status) => (
                       <SelectItem key={status} value={status.replace("_", " ")}>
                         {status.replace(/_/g, " ")}
