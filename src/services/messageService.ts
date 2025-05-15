@@ -1,4 +1,3 @@
-
 import { Message, MessageChannel, MessageLog, MessageStatus } from "@/types/message";
 
 export function getStatusColor(status: MessageStatus): string {
@@ -25,6 +24,15 @@ export function getChannelIcon(channel: MessageChannel): string {
   };
 
   return channelIconMap[channel] || 'message-square';
+}
+
+// Helper function for random UUID
+function randomUUID() {
+  // Einfacher, schneller pseudo-UUID-Generator für Testdaten
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 // Helper function to generate random test data
@@ -112,6 +120,10 @@ function generateRandomMessage(id: string): Message {
     });
   }
   
+  // NEU: shipmentId und traceId generieren
+  const shipmentId = randomUUID();
+  const traceId = randomUUID();
+  
   return {
     id,
     recipient,
@@ -128,6 +140,8 @@ function generateRandomMessage(id: string): Message {
       issues: validationIssues,
     },
     logs,
+    shipmentId, // hinzugefügt
+    traceId,    // hinzugefügt
   };
 }
 

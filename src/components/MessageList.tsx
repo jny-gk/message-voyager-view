@@ -155,13 +155,15 @@ const MessageList = () => {
     status === "pending" || status === "validated";
   
   const filteredMessages = messages?.filter((message) => {
-    // Basic search filter
+    // Basic search filter – erweitert um shipmentId und traceId!
     const basicSearchMatch = !searchTerm.trim() || [
       message.id,
       message.channel,
       message.recipient,
       message.subject,
-      message.content
+      message.content,
+      message.shipmentId, // neu
+      message.traceId     // neu
     ].some(field => 
       field.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -265,7 +267,7 @@ const MessageList = () => {
           </div>
           <Input
             type="text"
-            placeholder="Suche nach UUID, Sendetyp oder Adresse..."
+            placeholder="Suche nach UUID, Sendetyp, Adresse, shipmentId, traceId..."
             className="pl-10 w-full"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -493,6 +495,11 @@ const MessageList = () => {
                 <div className="flex-grow">
                   <div className="font-medium">{message.subject}</div>
                   <div className="text-sm text-gray-500">{message.recipient}</div>
+                  {/* NEU: beide IDs anzeigen */}
+                  <div className="mt-1 flex gap-8 text-xs text-gray-400">
+                    <div><span className="font-medium text-gray-600">Shipment-ID:</span> {message.shipmentId}</div>
+                    <div><span className="font-medium text-gray-600">Trace-ID:</span> {message.traceId}</div>
+                  </div>
                   <div className="mt-2 flex items-center gap-2">
                     <MessageStatusBadge channel={message.channel} status={message.status} />
                     {message.fallbackChannel && message.fallbackStatus && (

@@ -1,4 +1,3 @@
-
 export type MessageChannel = "email" | "post" | "sms" | "portal";
 
 export type MessageStatus = 
@@ -34,4 +33,6 @@ export interface Message {
     issues?: string[];
   };
   logs: MessageLog[];
+  shipmentId: string;
+  traceId: string;
 }
